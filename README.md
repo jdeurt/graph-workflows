@@ -23,7 +23,7 @@ python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md _sta
 python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md decision --true accepted --false revise
 ```
 
-Without a node, `next` returns `steps/_start.md`. After executing those instructions, `next FILE _start` follows its outgoing edge. Navigation prints only instruction paths or skill identifiers. Successful validation is silent. Agents execute the instructions; the CLI does not.
+Without a node, `next` returns `steps/_start.md`. After executing those instructions, `next FILE _start` follows its outgoing edge. Navigation returns an instruction path or skill identifier, prefixed with a spawn instruction for nodes marked `[subagent:fresh]` or `[subagent:inherit]`. Successful validation is silent. Agents execute the instructions; the CLI does not.
 
 ## Example
 

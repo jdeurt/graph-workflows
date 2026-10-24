@@ -36,7 +36,14 @@ Use one declaration or edge per line. The CLI accepts this subset, blank lines, 
 
 ## Threads and skill references
 
-Place `%% subagent:fresh` or `%% subagent:inherit` before the next node declaration. Blank lines do not change the association. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context.
+Append `[subagent:fresh]` or `[subagent:inherit]` inside a node's quoted label, after its filename or skill identifier:
+
+```mermaid
+a["foo.md [subagent:fresh]"]
+b["editor:review [subagent:inherit]"]
+```
+
+The annotation is not part of the filename or skill identifier. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context. Comments do not set execution preferences.
 
 These are preferences. Use the closest supported behavior when the harness lacks subagents, context control, or parallelism. Still execute the work, without routine capability disclaimers or false capability claims.
 
@@ -67,7 +74,12 @@ Run `python3 /path/to/graph-workflows/scripts/workflow.py` with one of:
 - `next FILE NODE`: after executing NODE, return the next path or identifier. For example, `next FILE _start` advances past start. Supply `--true TARGET` or `--false TARGET` for each conditional target. Resolve uncertainty before calling next.
 - `fork FILE NODE`: return every branch target, one per line. No condition flags apply.
 
-There is no JSON envelope or status chatter. An edge to stop returns the stop instruction path; execute those instructions and return their Outputs. Calling next on _stop produces no stdout and exits successfully: this workflow is complete. A nested workflow returns to its caller; a top-level workflow returns to the user. Errors go to stderr with a nonzero exit status. The CLI does not execute instructions, judge conditions, or create agents.
+Unannotated targets produce only an instruction path or skill identifier. Annotated targets produce one instruction per line:
+
+- `Spawn a subagent with fresh context: TARGET`
+- `Spawn a subagent inheriting the context from this thread: TARGET`
+
+TARGET is the resolved instruction path or skill identifier. These instructions express the node's preference. There is no JSON envelope or status chatter. An edge to stop returns the stop instruction path; execute those instructions and return their Outputs. Calling next on _stop produces no stdout and exits successfully: this workflow is complete. A nested workflow returns to its caller; a top-level workflow returns to the user. Errors go to stderr with a nonzero exit status. The CLI does not execute instructions, judge conditions, or create agents.
 
 Use `--root DIR` to check local plugin or skill collections. Instruction and template paths must remain inside their skill; physical link targets must remain inside the supplied root. Unavailable plugin namespaces remain skill identifiers for the harness to resolve.
 

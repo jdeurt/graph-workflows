@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
@@ -130,11 +130,16 @@ def node(line: str) -> Node | None:
     if not ordinary:
         return None
     name, target = ordinary.groups()
+    agent: Agent | None = None
+    annotation = re.fullmatch(r"(.+) \[subagent:(fresh|inherit)\]", target)
+    if annotation:
+        target = annotation[1]
+        agent = "fresh" if annotation[2] == "fresh" else "inherit"
     if name in {"_start", "_stop"}:
         raise ValueError(f"Reserved terminal identifier: {name}")
     if not SKILL.fullmatch(target) and (not target.endswith(".md") or any(c in target for c in "/:\n")):
         raise ValueError(f"Node {name} must name Markdown instructions or a plugin:skill reference")
-    return Node(name, target)
+    return Node(name, target, agent=agent)
 
 
 def parse(filename: Path) -> Workflow:
@@ -151,21 +156,12 @@ def parse(filename: Path) -> Workflow:
     if not lines or lines.pop(0) != "flowchart TD":
         raise ValueError("Use flowchart TD")
     workflow = Workflow(filename.resolve(), {}, [])
-    preference: Agent | None = None
     for line in lines:
-        if line in {"%% subagent:fresh", "%% subagent:inherit"}:
-            if preference is not None:
-                raise ValueError("A subagent comment must precede a node declaration")
-            preference = "fresh" if line.endswith(":fresh") else "inherit"
-            continue
         current = node(line)
-        if preference is not None and current is None:
-            raise ValueError("A subagent comment must precede a node declaration")
         if current:
             if current.name in workflow.nodes:
                 raise ValueError(f"Duplicate node: {current.name}")
-            workflow.nodes[current.name] = replace(current, agent=preference)
-            preference = None
+            workflow.nodes[current.name] = current
         elif line.startswith("%% ") and not line.startswith(("%% subagent", "%% agent ")):
             continue
         else:
@@ -173,8 +169,6 @@ def parse(filename: Path) -> Workflow:
             if not edge or (edge[2] is not None and not edge[2].strip()):
                 raise ValueError(f"Unsupported Mermaid statement: {line}")
             workflow.edges.append(Edge(edge[1], edge[3], edge[2].strip() if edge[2] else None))
-    if preference is not None:
-        raise ValueError("A subagent comment must precede a node declaration")
     validate_graph(workflow)
     return workflow
 
@@ -325,14 +319,14 @@ def select(workflow: Workflow, name: str, decisions: dict[str, Decision]) -> lis
 
 
 class Parser(argparse.ArgumentParser):
-    """Keep help off stdout so it remains a stream of navigation targets."""
+    """Keep help off stdout so it remains a stream of navigation instructions."""
 
     def print_help(self, file: object = None) -> None:
         super().print_help(file=sys.stderr)
 
 
 def run(arguments: list[str]) -> list[str]:
-    """Return only instruction paths or skill identifiers for CLI navigation."""
+    """Return targets with any requested subagent instructions."""
     parser = Parser(description=__doc__)
     parser.add_argument("command", choices=("validate", "next", "fork"))
     parser.add_argument("filename", type=Path)
@@ -363,11 +357,19 @@ def run(arguments: list[str]) -> list[str]:
     if args.command == "fork" and workflow.nodes[args.node].kind != "fork":
         raise ValueError(f"Not a fork: {args.node}")
     targets = select(workflow, args.node, decisions)
-    return [current.target if SKILL.fullmatch(current.target) else str(instruction(workflow, current)) for current in targets]
+    results = []
+    for current in targets:
+        target = current.target if SKILL.fullmatch(current.target) else str(instruction(workflow, current))
+        if current.agent == "fresh":
+            target = f"Spawn a subagent with fresh context: {target}"
+        elif current.agent == "inherit":
+            target = f"Spawn a subagent inheriting the context from this thread: {target}"
+        results.append(target)
+    return results
 
 
 def main() -> int:
-    """Write navigation targets to stdout and failures to stderr."""
+    """Write navigation instructions to stdout and failures to stderr."""
     try:
         for target in run(sys.argv[1:]):
             print(target)

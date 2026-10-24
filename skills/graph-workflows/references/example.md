@@ -7,10 +7,8 @@ flowchart TD
 _start@{ shape: sm-circ, label: "Start" }
 draft["draft.md"]
 split@{ shape: fork, label: "fork" }
-%% subagent:fresh
-review["editor:evidence-review"]
-%% subagent:inherit
-clarity["clarity.md"]
+review["editor:evidence-review [subagent:fresh]"]
+clarity["clarity.md [subagent:inherit]"]
 gather@{ shape: fork, label: "join" }
 qualify["qualify.md"]
 _stop@{ shape: framed-circle, label: "Stop" }

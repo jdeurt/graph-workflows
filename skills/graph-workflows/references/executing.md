@@ -10,6 +10,8 @@ Communicate task results, necessary questions, and actual blockers when the task
 
 Begin with `next FILE`, which returns steps/_start.md without following an edge. Execute those instructions, then use `next FILE _start` to advance. Read each Markdown instruction file or referenced skill and supply its inputs explicitly. Retain its declared outputs. Honor user scope, permissions, and project rules; the workflow grants no new authority.
 
+When navigation returns a spawn instruction, use its requested context and target with the closest supported harness behavior. The instruction is a preference, not evidence that an agent has been created.
+
 At decisions, assess all conditions and select exactly one true edge. At forks, execute every branch using its thread preference and the closest supported harness behavior. Keep branch artifacts separate. Continue at the matching join only after all branch outcomes are available.
 
 When a target references a graph workflow, read its graph, Notes, and stop contract, then call `next CHILD_FILE` to enter at its steps/_start.md. Run through its stop before returning the declared outputs to the caller. An unannotated successor continues on the same thread. Do not infer inputs from another node's hidden reasoning, even with inherited context.

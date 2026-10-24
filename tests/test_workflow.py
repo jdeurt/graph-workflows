@@ -26,10 +26,8 @@ b --> _stop'''
 PARALLEL = f'''flowchart TD
 {START}
 split@{{ shape: fork, label: "fork" }}
-%% subagent:fresh
-a["a.md"]
-%% subagent:inherit
-b["b.md"]
+a["a.md [subagent:fresh]"]
+b["b.md [subagent:inherit]"]
 gather@{{ shape: fork, label: "join" }}
 {STOP}
 _start --> split
@@ -97,7 +95,9 @@ class GraphTests(Fixture):
             PARALLEL.replace('label: "fork"', 'label: "Fork or Join"'),
             PARALLEL.replace("split --> a", "split -->|ready| a"),
             PARALLEL.replace("a --> gather", "a -->|ready| gather"),
-            PARALLEL.replace("%% subagent:fresh", "%% subagent:unknown"),
+            PARALLEL.replace("[subagent:fresh]", "[subagent:unknown]"),
+            PARALLEL.replace("[subagent:fresh]", "[subagent:fresh] [subagent:inherit]"),
+            PARALLEL.replace('a["a.md [subagent:fresh]"]', '%% subagent:fresh\na["a.md"]'),
             PARALLEL + "\n%% subagent:fresh",
             DECISION.replace("a.md", "../a.md"),
         ]
@@ -149,12 +149,16 @@ class NavigationTests(Fixture):
         with self.assertRaises(ValueError):
             wf.run(["fork", str(filename)])
 
-    def test_plain_targets_and_silent_validation(self) -> None:
+    def test_navigation_instructions_and_silent_validation(self) -> None:
         filename = self.write(PARALLEL)
         steps = filename.parent / "steps"
         self.assertEqual(wf.run(["validate", str(filename)]), [])
         self.assertEqual(wf.run(["next", str(filename), "_start"]), [str(steps / "split.md")])
-        self.assertEqual(wf.run(["fork", str(filename), "split"]), [str(steps / "a.md"), str(steps / "b.md")])
+        expected = [f"Spawn a subagent with fresh context: {steps / 'a.md'}", f"Spawn a subagent inheriting the context from this thread: {steps / 'b.md'}"]
+        self.assertEqual(wf.run(["fork", str(filename), "split"]), expected)
+        self.assertEqual(wf.run(["next", str(filename), "split"]), expected)
+        result = subprocess.run([sys.executable, str(SCRIPT), "next", str(filename), "split"], capture_output=True, text=True)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "\n".join(expected) + "\n", ""))
         self.assertEqual(wf.run(["next", str(filename), "_stop"]), [])
         with self.assertRaises(ValueError):
             wf.run(["fork", str(filename), "split", "--true", "a"])
@@ -196,6 +200,20 @@ class NavigationTests(Fixture):
         child.unlink()
         with self.assertRaises(FileNotFoundError):
             wf.load(filename, self.root)
+
+    def test_annotated_skill_reference_keeps_identifier(self) -> None:
+        for preference, instruction in (
+            ("fresh", "Spawn a subagent with fresh context"),
+            ("inherit", "Spawn a subagent inheriting the context from this thread"),
+        ):
+            with self.subTest(preference=preference):
+                graph = DECISION.replace('a["a.md"]', f'a["example:review [subagent:{preference}]"]')
+                filename = self.write(graph)
+                self.assertEqual(wf.load(filename).nodes["a"].target, "example:review")
+                self.assertEqual(
+                    wf.run(["next", str(filename), "_start", "--true", "a", "--false", "b"]),
+                    [f"{instruction}: example:review"],
+                )
 
     def test_missing_files_and_symlink_escape(self) -> None:
         filename = self.write(DECISION)

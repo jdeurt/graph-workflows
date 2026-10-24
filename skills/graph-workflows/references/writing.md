@@ -10,7 +10,7 @@ Read the standard and any existing workflow before editing. Establish the task, 
 6. Use conditions for decisions and unlabeled edges for unconditional flow.
 7. Use fork and join labels for concurrency, with no conditions out of fork or into join.
 8. Name each fork's matching join in its Markdown instructions.
-9. Add a subagent comment only when a different thread is useful.
+9. Append `[subagent:fresh]` or `[subagent:inherit]` inside the node label when a different thread is useful.
 
 Use an output template only when it helps produce the required result. Keep Notes execution-relevant. Do not add work-directory conventions, execution limits, or unrelated features.
 
