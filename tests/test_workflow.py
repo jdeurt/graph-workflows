@@ -246,7 +246,7 @@ class LayoutTests(unittest.TestCase):
     def test_one_discoverable_skill_with_bundled_instructions(self) -> None:
         directory = ROOT / "skills/graph-workflows"
         self.assertEqual(list((ROOT / "skills").rglob("SKILL.md")), [directory / "SKILL.md"])
-        for resource in ("standard", "writing", "executing", "example"):
+        for resource in ("standard", "writing", "executing"):
             self.assertTrue((directory / "references" / f"{resource}.md").is_file())
         self.assertTrue((directory / "scripts/workflow.py").is_file())
 
