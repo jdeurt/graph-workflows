@@ -135,6 +135,20 @@ class GraphTests(Fixture):
 
 
 class NavigationTests(Fixture):
+    def test_entry_returns_start_before_advancing(self) -> None:
+        filename = self.write(DECISION)
+        start = str(filename.parent / "steps/_start.md")
+        self.assertEqual(wf.run(["next", str(filename)]), [start])
+        result = subprocess.run([sys.executable, str(SCRIPT), "next", str(filename)], capture_output=True, text=True)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, start + "\n", ""))
+        self.assertEqual(wf.run(["next", str(filename), "_start", "--true", "a", "--false", "b"]), [str(filename.parent / "steps/a.md")])
+        result = subprocess.run([sys.executable, str(SCRIPT), "next", str(filename), "_stop"], capture_output=True, text=True)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
+        with self.assertRaises(ValueError):
+            wf.run(["next", str(filename), "--true", "a"])
+        with self.assertRaises(ValueError):
+            wf.run(["fork", str(filename)])
+
     def test_plain_targets_and_silent_validation(self) -> None:
         filename = self.write(PARALLEL)
         steps = filename.parent / "steps"
@@ -168,6 +182,10 @@ class NavigationTests(Fixture):
         filename = self.write(graph)
         child = self.write(name="review")
         self.assertEqual(wf.run(["next", str(filename), "_start", "--true", "a", "--false", "b", "--root", str(self.root)]), ["example:review"])
+        self.assertEqual(wf.run(["next", str(child)]), [str(child.parent / "steps/_start.md")])
+        self.assertEqual(wf.run(["next", str(child), "_start"]), [str(child.parent / "steps/_stop.md")])
+        self.assertEqual(wf.run(["next", str(child), "_stop"]), [])
+        self.assertEqual(wf.run(["next", str(filename), "a"]), [str(filename.parent / "steps/_stop.md")])
         child.write_text(entry(BASIC.replace("flowchart TD", "flowchart LR")).replace("metadata:\n  workflow: mermaid-v1", "metadata: {workflow: mermaid-v1}"))
         with self.assertRaises(ValueError):
             wf.load(filename, self.root)

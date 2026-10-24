@@ -18,10 +18,12 @@ The bundled CLI requires Python 3.10 or later and uses only the standard library
 
 ```sh
 python3 /path/to/graph-workflows/scripts/workflow.py validate /path/to/SKILL.md
+python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md
+python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md _start
 python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md decision --true accepted --false revise
 ```
 
-Navigation prints only instruction paths or skill identifiers. Successful validation is silent. Agents execute the instructions; the CLI does not.
+Without a node, `next` returns `steps/_start.md`. After executing those instructions, `next FILE _start` follows its outgoing edge. Navigation prints only instruction paths or skill identifiers. Successful validation is silent. Agents execute the instructions; the CLI does not.
 
 ## Example
 

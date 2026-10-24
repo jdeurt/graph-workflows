@@ -336,7 +336,7 @@ def run(arguments: list[str]) -> list[str]:
     parser = Parser(description=__doc__)
     parser.add_argument("command", choices=("validate", "next", "fork"))
     parser.add_argument("filename", type=Path)
-    parser.add_argument("node", nargs="?", default="_start")
+    parser.add_argument("node", nargs="?")
     parser.add_argument("--root", type=Path)
     for value in ("true", "false"):
         parser.add_argument(f"--{value}", action="append", default=[], metavar="TARGET")
@@ -352,6 +352,12 @@ def run(arguments: list[str]) -> list[str]:
         raise ValueError("Assessments apply only to next")
     if args.command == "validate":
         return []
+    if args.node is None:
+        if args.command == "fork":
+            raise ValueError("fork requires a node")
+        if decisions:
+            raise ValueError("Assessments require a source node")
+        return [str(instruction(workflow, workflow.nodes["_start"]))]
     if args.node not in workflow.nodes:
         raise ValueError(f"Unknown node: {args.node}")
     if args.command == "fork" and workflow.nodes[args.node].kind != "fork":
