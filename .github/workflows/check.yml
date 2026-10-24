@@ -14,11 +14,18 @@ jobs:
         with:
           node-version: "24"
       - run: python -m pip install mypy==2.4.0
-      - run: python -m mypy --strict skills/graph-workflows/scripts/workflow.py scripts/package.py tests/test_workflow.py
-      - run: python scripts/package.py
+      - run: python -m mypy --strict skills/graph-workflows/scripts/workflow.py tests/test_workflow.py
       - run: python -m unittest discover -s tests
-      - uses: actions/upload-artifact@v4
-        with:
-          name: graph-workflows
-          path: .soubi-out/
-          include-hidden-files: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+      - name: Verify Claude Code and Codex installation
+        run: |
+          install_test=$(mktemp -d)
+          cd "$install_test"
+          npx --yes skills add "$GITHUB_WORKSPACE" --skill graph-workflows --agent claude-code codex --yes --copy
+          test -f .claude/skills/graph-workflows/SKILL.md
+          test -f .agents/skills/graph-workflows/SKILL.md
+          test -f .agents/skills/graph-workflows/scripts/workflow.py
+          test -f .agents/skills/graph-workflows/references/standard.md
+        env:
+          DISABLE_TELEMETRY: "1"

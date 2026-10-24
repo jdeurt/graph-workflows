@@ -8,6 +8,6 @@ Use typed Python and the standard library for the CLI. Keep stdout limited to in
 
 Run focused unittest cases while editing. Check Python types. Leave the complete test suite to CI.
 
-Use Soubi to package Claude Code and Codex output. Do not add a marketplace or commit generated output.
+Keep the skill installable with npx skills. Do not add plugin packaging, a marketplace, or generated output.
 
 Push reviewed increments to main.

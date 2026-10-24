@@ -1,4 +1,4 @@
-"""Focused parser, reference, navigation, and native-package checks."""
+"""Focused parser, reference, navigation, and skill-layout checks."""
 
 from pathlib import Path
 import subprocess
@@ -105,6 +105,12 @@ class GraphTests(Fixture):
             with self.subTest(graph=graph), self.assertRaises(ValueError):
                 wf.parse(self.write(graph))
 
+    def test_direct_marker_in_block_and_flow_metadata(self) -> None:
+        for metadata in ("metadata:\n  workflow: mermaid-v1", "metadata: {workflow: mermaid-v1}", 'metadata: {author: "a,b", workflow: "mermaid-v1"}'):
+            self.assertTrue(wf.marked(f"---\n{metadata}\n---\n"))
+        for metadata in ("metadata:\n  nested:\n    workflow: mermaid-v1", 'metadata: {note: "x, workflow: mermaid-v1"}'):
+            self.assertFalse(wf.marked(f"---\n{metadata}\n---\n"))
+
     def test_context_and_unconditional_concurrency(self) -> None:
         workflow = wf.load(self.write(PARALLEL))
         self.assertEqual(workflow.nodes["a"].agent, "fresh")
@@ -141,10 +147,15 @@ class NavigationTests(Fixture):
         result = subprocess.run([sys.executable, str(SCRIPT), "validate", str(filename)], capture_output=True, text=True)
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
 
+    def test_help_keeps_stdout_empty(self) -> None:
+        result = subprocess.run([sys.executable, str(SCRIPT), "--help"], capture_output=True, text=True)
+        self.assertEqual((result.returncode, result.stdout), (0, ""))
+        self.assertIn("usage:", result.stderr)
+
     def test_decisions_need_complete_unique_evidence(self) -> None:
         workflow = wf.load(self.write(DECISION))
         self.assertEqual(wf.select(workflow, "_start", {"a": "true", "b": "false"})[0].name, "a")
-        cases: list[dict[str, wf.Decision]] = [{}, {"a": "true", "b": "unknown"}, {"a": "true", "b": "true"}, {"a": "false", "b": "false"}]
+        cases: list[dict[str, wf.Decision]] = [{}, {"a": "true"}, {"a": "true", "b": "true"}, {"a": "false", "b": "false"}]
         for decisions in cases:
             with self.subTest(decisions=decisions), self.assertRaises(ValueError):
                 wf.select(workflow, "_start", decisions)
@@ -157,6 +168,9 @@ class NavigationTests(Fixture):
         filename = self.write(graph)
         child = self.write(name="review")
         self.assertEqual(wf.run(["show", str(filename), "a", "--root", str(self.root)]), ["example:review"])
+        child.write_text(entry(BASIC.replace("flowchart TD", "flowchart LR")).replace("metadata:\n  workflow: mermaid-v1", "metadata: {workflow: mermaid-v1}"))
+        with self.assertRaises(ValueError):
+            wf.load(filename, self.root)
         child.write_text("---\nname: review\ndescription: Review text.\n---\n## Example\nOne.\n## Example\nTwo.\n")
         wf.load(filename, self.root)
         child.write_text(entry(graph.replace("example:review", "example:sample")))
@@ -192,18 +206,13 @@ class NavigationTests(Fixture):
             wf.load(filename)
 
 
-class PackagingTests(unittest.TestCase):
-    def test_only_one_skill_and_no_marketplace_or_contributor_instructions(self) -> None:
-        for client in ("claude", "codex"):
-            directory = ROOT / ".soubi-out" / client
-            if not directory.exists():
-                self.skipTest("Run scripts/package.py first")
-            self.assertEqual([p.relative_to(directory).as_posix() for p in directory.rglob("SKILL.md")], ["skills/graph-workflows/SKILL.md"])
-            self.assertFalse(list(directory.rglob("marketplace.json")))
-            self.assertFalse((directory / "AGENTS.md").exists())
-            self.assertFalse((directory / "CLAUDE.md").exists())
-            self.assertTrue((directory / f".{client}-plugin/plugin.json").is_file())
-            self.assertTrue((directory / "skills/graph-workflows/scripts/workflow.py").is_file())
+class LayoutTests(unittest.TestCase):
+    def test_one_discoverable_skill_with_bundled_instructions(self) -> None:
+        directory = ROOT / "skills/graph-workflows"
+        self.assertEqual(list((ROOT / "skills").rglob("SKILL.md")), [directory / "SKILL.md"])
+        for resource in ("standard", "writing", "executing", "example"):
+            self.assertTrue((directory / "references" / f"{resource}.md").is_file())
+        self.assertTrue((directory / "scripts/workflow.py").is_file())
 
 
 if __name__ == "__main__":

@@ -64,7 +64,7 @@ Run `python3 /path/to/graph-workflows/scripts/workflow.py` with one of:
 
 - `validate FILE`: check local graph and references; success produces no stdout.
 - `show FILE NODE`: return that node's instruction path or skill identifier.
-- `next FILE NODE`: return the next path or identifier. Supply `--true TARGET`, `--false TARGET`, or `--unknown TARGET` for each conditional target.
+- `next FILE NODE`: return the next path or identifier. Supply `--true TARGET` or `--false TARGET` for each conditional target. Resolve uncertainty before calling next.
 - `fork FILE NODE`: return every branch target, one per line. No condition flags apply.
 
 There is no JSON envelope or status chatter. Stop has no next target. Errors go to stderr with a nonzero exit status. The CLI does not execute instructions, judge conditions, or create agents.

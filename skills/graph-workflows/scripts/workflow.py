@@ -11,7 +11,7 @@ from typing import Literal
 
 Kind = Literal["node", "start", "stop", "fork", "join"]
 Agent = Literal["fresh", "inherit"]
-Decision = Literal["true", "false", "unknown"]
+Decision = Literal["true", "false"]
 IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
 SKILL = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9_.-]*:[A-Za-z0-9_-][A-Za-z0-9_.-]*")
 
@@ -50,19 +50,56 @@ def body(source: str) -> str:
     return re.sub(r"\A---\r?\n.*?\r?\n---(?:\r?\n|$)", "", source, count=1, flags=re.S).strip()
 
 
+def flow_fields(source: str) -> list[str]:
+    """Split a flow mapping without treating quoted or nested commas as fields."""
+    fields: list[str] = []
+    quote = ""
+    depth = 0
+    escaped = False
+    start = 0
+    for index, char in enumerate(source):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\" and quote == '"':
+                escaped = True
+            elif char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char in "{[":
+            depth += 1
+        elif char in "}]":
+            depth -= 1
+        elif char == "," and depth == 0:
+            fields.append(source[start:index].strip())
+            start = index + 1
+    return fields + [source[start:].strip()]
+
+
 def marked(source: str) -> bool:
-    """Recognize the workflow marker without implementing a YAML parser."""
+    """Recognize the direct metadata.workflow marker, without a YAML dependency."""
     header = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)", source, re.S)
     if header is None:
         return False
-    metadata = False
-    for line in header[1].splitlines():
-        if line == "metadata:":
-            metadata = True
-        elif line and not line[0].isspace():
-            metadata = False
-        elif metadata and re.fullmatch(r"\s+workflow:\s*['\"]?mermaid-v1['\"]?\s*", line):
-            return True
+    lines = header[1].splitlines()
+    marker = r"(?:workflow|'workflow'|\"workflow\"):\s*(?:mermaid-v1|'mermaid-v1'|\"mermaid-v1\")\s*(?:#.*)?"
+    for index, line in enumerate(lines):
+        if not line.startswith("metadata:"):
+            continue
+        value = line[len("metadata:"):].strip()
+        if value.startswith("{") and "}" in value:
+            return any(re.fullmatch(marker, item) for item in flow_fields(value[1:value.rfind("}")]))
+        children: list[str] = []
+        for child in lines[index + 1:]:
+            if child and not child[0].isspace():
+                break
+            if child.strip() and not child.lstrip().startswith("#"):
+                children.append(child)
+        if not children:
+            return False
+        indent = min(len(child) - len(child.lstrip()) for child in children)
+        return any(len(child) - len(child.lstrip()) == indent and re.fullmatch(marker, child.strip()) for child in children)
     return False
 
 
@@ -275,8 +312,8 @@ def select(workflow: Workflow, name: str, decisions: dict[str, Decision]) -> lis
     conditional = {edge.target for edge in outgoing if edge.condition is not None}
     if set(decisions) - conditional:
         raise ValueError("Assess only conditional outgoing targets")
-    if any(target not in decisions or decisions[target] == "unknown" for target in conditional):
-        raise ValueError("Blocked: assess every condition and resolve unknown evidence")
+    if any(target not in decisions for target in conditional):
+        raise ValueError("Assess every condition before navigation")
     selected = [edge for edge in outgoing if edge.condition is None or decisions.get(edge.target) == "true"]
     if not outgoing and workflow.nodes[name].kind == "stop":
         return []
@@ -285,22 +322,29 @@ def select(workflow: Workflow, name: str, decisions: dict[str, Decision]) -> lis
     return [workflow.nodes[edge.target] for edge in selected]
 
 
+class Parser(argparse.ArgumentParser):
+    """Keep help off stdout so it remains a stream of navigation targets."""
+
+    def print_help(self, file: object = None) -> None:
+        super().print_help(file=sys.stderr)
+
+
 def run(arguments: list[str]) -> list[str]:
     """Return only instruction paths or skill identifiers for CLI navigation."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = Parser(description=__doc__)
     parser.add_argument("command", choices=("validate", "show", "next", "fork"))
     parser.add_argument("filename", type=Path)
     parser.add_argument("node", nargs="?", default="_start")
     parser.add_argument("--root", type=Path)
-    for value in ("true", "false", "unknown"):
+    for value in ("true", "false"):
         parser.add_argument(f"--{value}", action="append", default=[], metavar="TARGET")
     args = parser.parse_args(arguments)
     decisions: dict[str, Decision] = {}
-    for value in ("true", "false", "unknown"):
+    for value in ("true", "false"):
         for target in getattr(args, value):
             if target in decisions:
                 raise ValueError(f"Duplicate assessment: {target}")
-            decisions[target] = "true" if value == "true" else "false" if value == "false" else "unknown"
+            decisions[target] = "true" if value == "true" else "false"
     workflow = load(args.filename, args.root)
     if args.command in {"validate", "show"} and decisions:
         raise ValueError("Assessments apply only to next")
