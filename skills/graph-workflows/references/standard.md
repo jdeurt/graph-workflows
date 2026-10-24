@@ -40,7 +40,7 @@ Place `%% subagent:fresh` or `%% subagent:inherit` before the next node declarat
 
 These are preferences. Use the closest supported behavior when the harness lacks subagents, context control, or parallelism. Still execute the work, without routine capability disclaimers or false capability claims.
 
-Supply a referenced skill's inputs explicitly. Run a referenced workflow from start through stop, then return its declared results to the parent before selecting another edge. Follow a prose skill's own instructions. Resolve missing or ambiguous inputs before acting. Missing skills block execution; the CLI can only check locally available references.
+When next returns a skill identifier, resolve the skill. If it is a graph workflow, treat the reference as entry at its steps/_start.md, after reading its graph, Notes, and stop contract. Supply its inputs explicitly, run through stop, then return its declared results to the parent before selecting another edge. Follow a prose skill's own instructions. Resolve missing or ambiguous inputs before acting. Missing skills block execution; the CLI can only check locally available references.
 
 ## Fork and join
 
@@ -63,11 +63,10 @@ Branches must stay separate until their matching join. Nested forks and multiple
 Run `python3 /path/to/graph-workflows/scripts/workflow.py` with one of:
 
 - `validate FILE`: check local graph and references; success produces no stdout.
-- `show FILE NODE`: return that node's instruction path or skill identifier.
 - `next FILE NODE`: return the next path or identifier. Supply `--true TARGET` or `--false TARGET` for each conditional target. Resolve uncertainty before calling next.
 - `fork FILE NODE`: return every branch target, one per line. No condition flags apply.
 
-There is no JSON envelope or status chatter. Stop has no next target. Errors go to stderr with a nonzero exit status. The CLI does not execute instructions, judge conditions, or create agents.
+There is no JSON envelope or status chatter. An edge to stop returns the stop instruction path; execute those instructions and return their Outputs. Calling next on _stop produces no stdout and exits successfully: this workflow is complete. A nested workflow returns to its caller; a top-level workflow returns to the user. Errors go to stderr with a nonzero exit status. The CLI does not execute instructions, judge conditions, or create agents.
 
 Use `--root DIR` to check local plugin or skill collections. Instruction and template paths must remain inside their skill; physical link targets must remain inside the supplied root. Unavailable plugin namespaces remain skill identifiers for the harness to resolve.
 

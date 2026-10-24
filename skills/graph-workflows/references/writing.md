@@ -19,3 +19,5 @@ Validate the graph and references. Exercise a representative task, relevant fail
 Have an independent reader review material changes when available. Resolve findings and report the actual checks and remaining limits. Keep examples as supporting references, not additional installed skills.
 
 Use the [release-brief example](example.md) to see nested skill references and parallel review together.
+
+Use the [coding example](examples/write-code/WORKFLOW.md) for planning, implementation, focused-test repair loops, and PR creation. It ends with the PR link without waiting for CI. Its WORKFLOW.md filename keeps it a supporting example rather than an installed skill.

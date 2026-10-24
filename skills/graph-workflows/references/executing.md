@@ -12,6 +12,6 @@ Begin at start. Read each Markdown instruction file or referenced skill and supp
 
 At decisions, assess all conditions and select exactly one true edge. At forks, execute every branch using its thread preference and the closest supported harness behavior. Keep branch artifacts separate. Continue at the matching join only after all branch outcomes are available.
 
-A referenced workflow runs through its stop before returning. An unannotated successor continues on the same thread. Do not infer inputs from another node's hidden reasoning, even with inherited context.
+When a target references a graph workflow, enter at its steps/_start.md after reading its graph, Notes, and stop contract. Run through its stop before returning the declared outputs to the caller. An unannotated successor continues on the same thread. Do not infer inputs from another node's hidden reasoning, even with inherited context.
 
-Execute stop's instructions and return its outputs using any named template. On failure, preserve completed effects and identify the information or action needed to recover. Check uncertain external outcomes before retrying. Resume only while the retained artifacts remain valid.
+When next returns the stop instruction path, execute it and return its Outputs using any named template. Calling next on _stop returns nothing with a successful exit; do not seek another node. A nested workflow resumes its caller; a top-level workflow finishes. On failure, preserve completed effects and identify the information or action needed to recover. Check uncertain external outcomes before retrying. Resume only while the retained artifacts remain valid.

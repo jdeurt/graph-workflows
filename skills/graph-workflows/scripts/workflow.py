@@ -334,7 +334,7 @@ class Parser(argparse.ArgumentParser):
 def run(arguments: list[str]) -> list[str]:
     """Return only instruction paths or skill identifiers for CLI navigation."""
     parser = Parser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "show", "next", "fork"))
+    parser.add_argument("command", choices=("validate", "next", "fork"))
     parser.add_argument("filename", type=Path)
     parser.add_argument("node", nargs="?", default="_start")
     parser.add_argument("--root", type=Path)
@@ -348,7 +348,7 @@ def run(arguments: list[str]) -> list[str]:
                 raise ValueError(f"Duplicate assessment: {target}")
             decisions[target] = "true" if value == "true" else "false"
     workflow = load(args.filename, args.root)
-    if args.command in {"validate", "show"} and decisions:
+    if args.command == "validate" and decisions:
         raise ValueError("Assessments apply only to next")
     if args.command == "validate":
         return []
@@ -356,7 +356,7 @@ def run(arguments: list[str]) -> list[str]:
         raise ValueError(f"Unknown node: {args.node}")
     if args.command == "fork" and workflow.nodes[args.node].kind != "fork":
         raise ValueError(f"Not a fork: {args.node}")
-    targets = [workflow.nodes[args.node]] if args.command == "show" else select(workflow, args.node, decisions)
+    targets = select(workflow, args.node, decisions)
     return [current.target if SKILL.fullmatch(current.target) else str(instruction(workflow, current)) for current in targets]
 
 

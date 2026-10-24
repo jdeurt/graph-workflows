@@ -18,11 +18,14 @@ The bundled CLI requires Python 3.10 or later and uses only the standard library
 
 ```sh
 python3 /path/to/graph-workflows/scripts/workflow.py validate /path/to/SKILL.md
-python3 /path/to/graph-workflows/scripts/workflow.py show /path/to/SKILL.md node
 python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md decision --true accepted --false revise
 ```
 
 Navigation prints only instruction paths or skill identifiers. Successful validation is silent. Agents execute the instructions; the CLI does not.
+
+## Example
+
+The [coding workflow](skills/graph-workflows/references/examples/write-code/WORKFLOW.md) plans a change, implements it, repairs focused-test failures, and opens a PR. It returns the PR link without waiting for CI.
 
 ## Development
 

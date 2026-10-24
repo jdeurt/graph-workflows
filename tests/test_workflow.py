@@ -139,7 +139,7 @@ class NavigationTests(Fixture):
         filename = self.write(PARALLEL)
         steps = filename.parent / "steps"
         self.assertEqual(wf.run(["validate", str(filename)]), [])
-        self.assertEqual(wf.run(["show", str(filename), "a"]), [str(steps / "a.md")])
+        self.assertEqual(wf.run(["next", str(filename), "_start"]), [str(steps / "split.md")])
         self.assertEqual(wf.run(["fork", str(filename), "split"]), [str(steps / "a.md"), str(steps / "b.md")])
         self.assertEqual(wf.run(["next", str(filename), "_stop"]), [])
         with self.assertRaises(ValueError):
@@ -167,7 +167,7 @@ class NavigationTests(Fixture):
         graph = DECISION.replace('a["a.md"]', 'a["example:review"]')
         filename = self.write(graph)
         child = self.write(name="review")
-        self.assertEqual(wf.run(["show", str(filename), "a", "--root", str(self.root)]), ["example:review"])
+        self.assertEqual(wf.run(["next", str(filename), "_start", "--true", "a", "--false", "b", "--root", str(self.root)]), ["example:review"])
         child.write_text(entry(BASIC.replace("flowchart TD", "flowchart LR")).replace("metadata:\n  workflow: mermaid-v1", "metadata: {workflow: mermaid-v1}"))
         with self.assertRaises(ValueError):
             wf.load(filename, self.root)
@@ -188,7 +188,7 @@ class NavigationTests(Fixture):
         target.symlink_to(outside)
         with self.assertRaises(ValueError):
             wf.load(filename)
-        result = subprocess.run([sys.executable, str(SCRIPT), "show", str(filename), "a"], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, str(SCRIPT), "next", str(filename), "_start"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, "")
         self.assertIn("bundle root", result.stderr)
@@ -213,6 +213,31 @@ class LayoutTests(unittest.TestCase):
         for resource in ("standard", "writing", "executing", "example"):
             self.assertTrue((directory / "references" / f"{resource}.md").is_file())
         self.assertTrue((directory / "scripts/workflow.py").is_file())
+
+
+class CodingExampleTests(unittest.TestCase):
+    def test_success_and_repair_routes_end_at_pr_link(self) -> None:
+        filename = ROOT / "skills/graph-workflows/references/examples/write-code/WORKFLOW.md"
+        workflow = wf.load(filename)
+        routes = [
+            ["_start", "plan", "implement", "tests", "pr", "_stop"],
+            ["_start", "plan", "implement", "tests", "implement", "tests", "pr", "_stop"],
+            ["_start", "plan", "implement", "tests", "repair_tests", "tests", "pr", "_stop"],
+        ]
+        for route in routes:
+            with self.subTest(route=route):
+                for source, target in zip(route, route[1:]):
+                    decisions: dict[str, wf.Decision] = {
+                        edge.target: "true" if edge.target == target else "false"
+                        for edge in workflow.edges if edge.source == source and edge.condition
+                    }
+                    self.assertEqual([node.name for node in wf.select(workflow, source, decisions)], [target])
+                    arguments = ["next", str(filename), source]
+                    for name, decision in decisions.items():
+                        arguments.extend([f"--{decision}", name])
+                    expected = str(wf.instruction(workflow, workflow.nodes[target]))
+                    self.assertEqual(wf.run(arguments), [expected])
+                self.assertEqual(wf.run(["next", str(filename), "_stop"]), [])
 
 
 if __name__ == "__main__":
