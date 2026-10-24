@@ -2,10 +2,10 @@
 
 Read the standard and any existing workflow before editing. Establish the task, inputs, outputs, and evidence of completion. Keep the graph and its Markdown instructions consistent.
 
-1. Preserve standard skill frontmatter and the workflow marker.
+1. Keep the workflow marker. For installable skills, preserve standard skill frontmatter too.
 2. Put the top-down Mermaid graph first, with optional Notes bullets afterward.
 3. Define start inputs and stop outputs as free-form bullets.
-4. Give each normal node a Markdown filename or skill identifier.
+4. Give Markdown-backed nodes readable labels and relative click href links, including start, stop, fork, and join. A linked Markdown file can itself be a workflow. Use plugin:skill labels for skill references.
 5. Write self-contained instructions with explicit inputs and outputs.
 6. Use conditions for decisions and unlabeled edges for unconditional flow.
 7. Use fork and join labels for concurrency, with no conditions out of fork or into join.
@@ -18,4 +18,6 @@ Validate the graph and references. Exercise a representative task, relevant fail
 
 Have an independent reader review material changes when available. Resolve findings and report the actual checks and remaining limits. Keep examples as supporting references, not additional installed skills.
 
-Use the [coding example](examples/write-code/WORKFLOW.md) for planning, implementation, focused-test repair loops, and PR creation. It ends with the PR link without waiting for CI. Its WORKFLOW.md filename keeps it a supporting example rather than an installed skill.
+Use the [coding example](examples/write-code/WORKFLOW.md) for planning, implementation, focused-test repair loops, and PR creation. Its implementation node invokes a nested Markdown workflow that partitions work, dispatches N agents, and integrates their results before testing. The parent ends with the PR link without waiting for CI. Its WORKFLOW.md filename keeps it a supporting example rather than an installed skill.
+
+Use the [workflow-authoring example](examples/write-workflow/WORKFLOW.md) to turn requirements into a skill through drafting, fresh-context review, validation, and revision.

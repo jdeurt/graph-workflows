@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import re
 import sys
@@ -112,7 +112,7 @@ def section(source: str, heading: str) -> str:
 
 
 def node(line: str) -> Node | None:
-    """Parse a Markdown filename, skill reference, or requested control shape."""
+    """Parse a named node, skill reference, or requested control shape."""
     expanded = re.fullmatch(rf'({IDENTIFIER})@\{{ shape: (sm-circ|framed-circle|fork), label: "([^"]+)" \}}', line)
     if expanded:
         name, shape, label = expanded.groups()
@@ -135,10 +135,10 @@ def node(line: str) -> Node | None:
     if annotation:
         target = annotation[1]
         agent = "fresh" if annotation[2] == "fresh" else "inherit"
+    if "[subagent:" in target:
+        raise ValueError("Use one [subagent:fresh] or [subagent:inherit] label suffix")
     if name in {"_start", "_stop"}:
         raise ValueError(f"Reserved terminal identifier: {name}")
-    if not SKILL.fullmatch(target) and (not target.endswith(".md") or any(c in target for c in "/:\n")):
-        raise ValueError(f"Node {name} must name Markdown instructions or a plugin:skill reference")
     return Node(name, target, agent=agent)
 
 
@@ -156,6 +156,7 @@ def parse(filename: Path) -> Workflow:
     if not lines or lines.pop(0) != "flowchart TD":
         raise ValueError("Use flowchart TD")
     workflow = Workflow(filename.resolve(), {}, [])
+    links: dict[str, str] = {}
     for line in lines:
         current = node(line)
         if current:
@@ -165,10 +166,29 @@ def parse(filename: Path) -> Workflow:
         elif line.startswith("%% ") and not line.startswith(("%% subagent", "%% agent ")):
             continue
         else:
+            link = re.fullmatch(rf'click ({IDENTIFIER}) href "([^"<>`{{}}\\]+)"', line)
+            if link:
+                name, target = link.groups()
+                if name in links:
+                    raise ValueError(f"Duplicate Markdown link: {name}")
+                if Path(target).is_absolute() or ":" in target or not target.endswith(".md"):
+                    raise ValueError(f"Use a relative Markdown link: {target}")
+                links[name] = target
+                continue
             edge = re.fullmatch(rf'({IDENTIFIER}) -->(?:\|([^|"<>`{{}}\\]+)\|)? ({IDENTIFIER})', line)
             if not edge or (edge[2] is not None and not edge[2].strip()):
                 raise ValueError(f"Unsupported Mermaid statement: {line}")
             workflow.edges.append(Edge(edge[1], edge[3], edge[2].strip() if edge[2] else None))
+    for name in links:
+        if name not in workflow.nodes:
+            raise ValueError(f"Link references an undeclared node: {name}")
+    for name, current in workflow.nodes.items():
+        if name in links:
+            if current.kind == "node" and SKILL.fullmatch(current.target):
+                raise ValueError(f"Skill reference {name} cannot also have a Markdown link")
+            workflow.nodes[name] = replace(current, target=links[name])
+        elif current.kind != "node" or not SKILL.fullmatch(current.target):
+            raise ValueError(f'Node {name} needs click {name} href "relative/path.md"')
     validate_graph(workflow)
     return workflow
 
@@ -221,9 +241,9 @@ def contained(filename: Path, root: Path) -> Path:
 
 
 def instruction(workflow: Workflow, current: Node) -> Path:
-    """Resolve a node's Markdown instructions within its skill's steps directory."""
+    """Resolve a Markdown link relative to the graph file."""
     directory = workflow.filename.parent.resolve()
-    return contained(directory / "steps" / current.target, directory)
+    return contained(directory / current.target, directory)
 
 
 def skill_target(identifier: str, root: Path) -> Path | None:
@@ -286,9 +306,12 @@ def load(filename: Path, root: Path | None = None, seen: set[Path] | None = None
             if target is not None and marked(target.read_text(encoding="utf-8")):
                 load(target, root, seen)
             continue
-        document = instruction(workflow, current).read_text(encoding="utf-8")
+        target = instruction(workflow, current)
+        document = target.read_text(encoding="utf-8")
         if not document.strip():
             raise ValueError(f"Empty Markdown instructions: {current.target}")
+        if current.kind == "node" and marked(document):
+            load(target, root, seen)
         heading = "Inputs" if current.kind == "start" else "Outputs" if current.kind == "stop" else None
         if heading and not re.search(r"^[-*+] \S", section(document, heading), re.M):
             raise ValueError(f"{current.name} needs {heading} bullets")
@@ -328,7 +351,7 @@ class Parser(argparse.ArgumentParser):
 def run(arguments: list[str]) -> list[str]:
     """Return targets with any requested subagent instructions."""
     parser = Parser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "next", "fork"))
+    parser.add_argument("command", choices=("validate", "start", "next", "fork"))
     parser.add_argument("filename", type=Path)
     parser.add_argument("node", nargs="?")
     parser.add_argument("--root", type=Path)
@@ -342,16 +365,18 @@ def run(arguments: list[str]) -> list[str]:
                 raise ValueError(f"Duplicate assessment: {target}")
             decisions[target] = "true" if value == "true" else "false"
     workflow = load(args.filename, args.root)
-    if args.command == "validate" and decisions:
+    if args.command in {"validate", "start"} and decisions:
         raise ValueError("Assessments apply only to next")
     if args.command == "validate":
         return []
-    if args.node is None:
-        if args.command == "fork":
-            raise ValueError("fork requires a node")
-        if decisions:
-            raise ValueError("Assessments require a source node")
+    if args.command == "start":
+        if args.node is not None:
+            raise ValueError("start takes a workflow file, without a node")
         return [str(instruction(workflow, workflow.nodes["_start"]))]
+    if args.node is None:
+        raise ValueError(f"{args.command} requires a node")
+    if args.node not in workflow.nodes:
+        args.node = {"start": "_start", "stop": "_stop"}.get(args.node, args.node)
     if args.node not in workflow.nodes:
         raise ValueError(f"Unknown node: {args.node}")
     if args.command == "fork" and workflow.nodes[args.node].kind != "fork":

@@ -1,7 +1,7 @@
 ---
 name: graph-workflows
 description: >-
-  Use when reading, creating, editing, or executing graph workflow skills,
+  Use when reading, creating, editing, or executing graph workflows, including workflow skills,
   identified by metadata.workflow: mermaid-v1 in their frontmatter.
 ---
 
