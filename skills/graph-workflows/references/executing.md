@@ -1,5 +1,7 @@
 # Read and execute a workflow
 
+For reading-only requests, inspect or explain the requested content without executing its actions.
+
 Read the standard, graph, Notes, start inputs, and stop outputs. Resolve the required inputs and skills before acting. Validate local files with the CLI when available; otherwise inspect them directly.
 
 Do the work the workflow prescribes. Do not narrate workflow execution, node changes, navigation commands, branch dispatch, or control flow. Avoid statements such as “I'm executing this workflow” or “I'll run this node next.” Commands used to navigate or validate the workflow need no commentary.

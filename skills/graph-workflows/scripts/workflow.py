@@ -259,11 +259,10 @@ def load(filename: Path, root: Path | None = None, seen: set[Path] | None = None
         heading = "Inputs" if current.kind == "start" else "Outputs" if current.kind == "stop" else None
         if heading and not re.search(r"^[-*+] \S", section(document, heading), re.M):
             raise ValueError(f"{current.name} needs {heading} bullets")
-        template = section(document, "Output template")
-        if template:
-            if current.kind != "stop":
-                raise ValueError("Only stop instructions declare an output template")
-            contained(instruction(workflow, current).parent / template, filename.parent)
+        if current.kind == "stop":
+            template = section(document, "Output template")
+            if template:
+                contained(instruction(workflow, current).parent / template, filename.parent)
     validate_parallel(workflow)
     return workflow
 
