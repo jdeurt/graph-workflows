@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
@@ -112,7 +112,7 @@ def section(source: str, heading: str) -> str:
 
 
 def node(line: str) -> Node | None:
-    """Parse a named node, skill reference, or requested control shape."""
+    """Parse a Markdown path, skill reference, or requested control shape."""
     expanded = re.fullmatch(rf'({IDENTIFIER})@\{{ shape: (sm-circ|framed-circle|fork), label: "([^"]+)" \}}', line)
     if expanded:
         name, shape, label = expanded.groups()
@@ -139,6 +139,8 @@ def node(line: str) -> Node | None:
         raise ValueError("Use one [subagent:fresh] or [subagent:inherit] label suffix")
     if name in {"_start", "_stop"}:
         raise ValueError(f"Reserved terminal identifier: {name}")
+    if not SKILL.fullmatch(target) and (Path(target).is_absolute() or ":" in target or not target.endswith(".md")):
+        raise ValueError(f"Node {name} must name Markdown instructions or a plugin:skill reference")
     return Node(name, target, agent=agent)
 
 
@@ -156,7 +158,6 @@ def parse(filename: Path) -> Workflow:
     if not lines or lines.pop(0) != "flowchart TD":
         raise ValueError("Use flowchart TD")
     workflow = Workflow(filename.resolve(), {}, [])
-    links: dict[str, str] = {}
     for line in lines:
         current = node(line)
         if current:
@@ -166,29 +167,10 @@ def parse(filename: Path) -> Workflow:
         elif line.startswith("%% ") and not line.startswith(("%% subagent", "%% agent ")):
             continue
         else:
-            link = re.fullmatch(rf'click ({IDENTIFIER}) href "([^"<>`{{}}\\]+)"', line)
-            if link:
-                name, target = link.groups()
-                if name in links:
-                    raise ValueError(f"Duplicate Markdown link: {name}")
-                if Path(target).is_absolute() or ":" in target or not target.endswith(".md"):
-                    raise ValueError(f"Use a relative Markdown link: {target}")
-                links[name] = target
-                continue
             edge = re.fullmatch(rf'({IDENTIFIER}) -->(?:\|([^|"<>`{{}}\\]+)\|)? ({IDENTIFIER})', line)
             if not edge or (edge[2] is not None and not edge[2].strip()):
                 raise ValueError(f"Unsupported Mermaid statement: {line}")
             workflow.edges.append(Edge(edge[1], edge[3], edge[2].strip() if edge[2] else None))
-    for name in links:
-        if name not in workflow.nodes:
-            raise ValueError(f"Link references an undeclared node: {name}")
-    for name, current in workflow.nodes.items():
-        if name in links:
-            if current.kind == "node" and SKILL.fullmatch(current.target):
-                raise ValueError(f"Skill reference {name} cannot also have a Markdown link")
-            workflow.nodes[name] = replace(current, target=links[name])
-        elif current.kind != "node" or not SKILL.fullmatch(current.target):
-            raise ValueError(f'Node {name} needs click {name} href "relative/path.md"')
     validate_graph(workflow)
     return workflow
 
@@ -241,9 +223,10 @@ def contained(filename: Path, root: Path) -> Path:
 
 
 def instruction(workflow: Workflow, current: Node) -> Path:
-    """Resolve a Markdown link relative to the graph file."""
+    """Resolve instructions under steps/ or the reusable workflow's sibling directory."""
     directory = workflow.filename.parent.resolve()
-    return contained(directory / current.target, directory)
+    steps = "steps" if workflow.filename.name in {"SKILL.md", "WORKFLOW.md"} else workflow.filename.stem
+    return contained(directory / steps / current.target, directory)
 
 
 def skill_target(identifier: str, root: Path) -> Path | None:

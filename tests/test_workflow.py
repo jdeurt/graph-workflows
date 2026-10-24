@@ -13,16 +13,12 @@ import workflow as wf
 
 START = '_start@{ shape: sm-circ, label: "Start" }'
 STOP = '_stop@{ shape: framed-circle, label: "Stop" }'
-BASIC = f'flowchart TD\n{START}\n{STOP}\nclick _start href "steps/_start.md"\nclick _stop href "steps/_stop.md"\n_start --> _stop'
+BASIC = f"flowchart TD\n{START}\n{STOP}\n_start --> _stop"
 DECISION = f'''flowchart TD
 {START}
-a["A"]
-b["B"]
-click a href "steps/a.md"
-click b href "steps/b.md"
+a["a.md"]
+b["b.md"]
 {STOP}
-click _start href "steps/_start.md"
-click _stop href "steps/_stop.md"
 _start -->|a is supported| a
 _start -->|b is supported| b
 a --> _stop
@@ -30,16 +26,10 @@ b --> _stop'''
 PARALLEL = f'''flowchart TD
 {START}
 split@{{ shape: fork, label: "fork" }}
-a["A [subagent:fresh]"]
-b["B [subagent:inherit]"]
-click a href "steps/a.md"
-click b href "steps/b.md"
-click split href "steps/split.md"
-click gather href "steps/gather.md"
+a["a.md [subagent:fresh]"]
+b["b.md [subagent:inherit]"]
 gather@{{ shape: fork, label: "join" }}
 {STOP}
-click _start href "steps/_start.md"
-click _stop href "steps/_stop.md"
 _start --> split
 split --> a
 split --> b
@@ -95,7 +85,7 @@ class GraphTests(Fixture):
             BASIC.replace(STOP, ""),
             BASIC + f"\n{START}",
             BASIC.replace("_start --> _stop", "_start --> absent"),
-            BASIC + '\norphan["Orphan"]\nclick orphan href "steps/a.md"\norphan --> _stop',
+            BASIC + '\norphan["a.md"]\norphan --> _stop',
             BASIC + "\n_stop --> _start",
             BASIC + "\nclick _start call evil()",
             BASIC + "\n%%{init: {}}%%",
@@ -107,14 +97,12 @@ class GraphTests(Fixture):
             PARALLEL.replace("a --> gather", "a -->|ready| gather"),
             PARALLEL.replace("[subagent:fresh]", "[subagent:unknown]"),
             PARALLEL.replace("[subagent:fresh]", "[subagent:fresh] [subagent:inherit]"),
-            PARALLEL.replace('a["A [subagent:fresh]"]', '%% subagent:fresh\na["A"]'),
+            PARALLEL.replace('a["a.md [subagent:fresh]"]', '%% subagent:fresh\na["a.md"]'),
             PARALLEL + "\n%% subagent:fresh",
-            DECISION.replace('href "steps/a.md"', 'href "/a.md"'),
-            DECISION.replace('href "steps/a.md"', 'href "https://example.com/a.md"'),
-            DECISION.replace('click a href "steps/a.md"', ''),
+            DECISION.replace('a["a.md"]', 'a["/a.md"]'),
+            DECISION.replace('a["a.md"]', 'a["https://example.com/a.md"]'),
+            DECISION.replace('a["a.md"]', 'a["A"]'),
             DECISION + '\nclick a href "steps/a.md"',
-            DECISION + '\nclick absent href "steps/a.md"',
-            DECISION.replace('a["A"]', 'a["editor:review"]'),
         ]
         for graph in cases:
             with self.subTest(graph=graph), self.assertRaises(ValueError):
@@ -189,15 +177,14 @@ class NavigationTests(Fixture):
         self.assertEqual((result.returncode, result.stdout), (0, ""))
         self.assertIn("usage:", result.stderr)
 
-    def test_named_links_resolve_relative_to_the_graph(self) -> None:
+    def test_relative_paths_resolve_in_the_instruction_directory(self) -> None:
         filename = self.write(DECISION)
-        linked = filename.parent / "instructions/request.md"
+        linked = filename.parent / "steps/instructions/request.md"
         linked.parent.mkdir()
         (filename.parent / "steps/a.md").rename(linked)
-        filename.write_text(filename.read_text().replace('href "steps/a.md"', 'href "instructions/request.md"'))
-        renamed = filename.rename(filename.with_name("entry.md"))
-        self.assertEqual(wf.run(["start", str(renamed)]), [str(renamed.parent / "steps/_start.md")])
-        self.assertEqual(wf.run(["next", str(renamed), "start", "--true", "a", "--false", "b"]), [str(linked)])
+        filename.write_text(filename.read_text().replace('a["a.md"]', 'a["instructions/request.md"]'))
+        self.assertEqual(wf.run(["start", str(filename)]), [str(filename.parent / "steps/_start.md")])
+        self.assertEqual(wf.run(["next", str(filename), "start", "--true", "a", "--false", "b"]), [str(linked)])
 
     def test_decisions_need_complete_unique_evidence(self) -> None:
         workflow = wf.load(self.write(DECISION))
@@ -211,7 +198,7 @@ class NavigationTests(Fixture):
             wf.run(["next", str(filename), "_start", "--true", "a", "--false", "a"])
 
     def test_skill_reference_is_an_identifier(self) -> None:
-        graph = DECISION.replace('a["A"]', 'a["example:review"]').replace('click a href "steps/a.md"\n', '')
+        graph = DECISION.replace('a["a.md"]', 'a["example:review"]')
         filename = self.write(graph)
         child = self.write(name="review")
         self.assertEqual(wf.run(["next", str(filename), "_start", "--true", "a", "--false", "b", "--root", str(self.root)]), ["example:review"])
@@ -236,7 +223,7 @@ class NavigationTests(Fixture):
             ("inherit", "Spawn a subagent inheriting the context from this thread"),
         ):
             with self.subTest(preference=preference):
-                graph = DECISION.replace('a["A"]', f'a["example:review [subagent:{preference}]"]').replace('click a href "steps/a.md"\n', '')
+                graph = DECISION.replace('a["a.md"]', f'a["example:review [subagent:{preference}]"]')
                 filename = self.write(graph)
                 self.assertEqual(wf.load(filename).nodes["a"].target, "example:review")
                 self.assertEqual(
@@ -274,7 +261,6 @@ class NavigationTests(Fixture):
 class NestedWorkflowTests(Fixture):
     def nested(self, filename: Path, graph: str = BASIC) -> Path:
         """Create a reusable workflow without skill metadata or a SKILL.md entry."""
-        graph = graph.replace('"steps/', f'"{filename.stem}/')
         filename.write_text("---\nmetadata:\n  workflow: mermaid-v1\n---\n\n```mermaid\n" + graph + "\n```\n")
         directory = filename.with_suffix("")
         directory.mkdir(exist_ok=True)
@@ -283,7 +269,7 @@ class NestedWorkflowTests(Fixture):
         return filename
 
     def test_markdown_workflow_entry_and_return(self) -> None:
-        parent = self.write(DECISION.replace('href "steps/a.md"', 'href "steps/implement.md"'))
+        parent = self.write(DECISION.replace('a["a.md"]', 'a["implement.md"]'))
         child = self.nested(parent.parent / "steps/implement.md")
         self.assertEqual(wf.run(["next", str(parent), "_start", "--true", "a", "--false", "b"]), [str(child)])
         self.assertEqual(wf.run(["start", str(child)]), [str(child.with_suffix("") / "_start.md")])
@@ -292,7 +278,7 @@ class NestedWorkflowTests(Fixture):
         self.assertEqual(wf.run(["next", str(parent), "a"]), [str(parent.parent / "steps/_stop.md")])
 
     def test_deeper_nesting_and_broken_child_references(self) -> None:
-        graph = BASIC.replace("_start --> _stop", 'child["Child"]\nclick child href "steps/child.md"\n_start --> child\nchild --> _stop')
+        graph = BASIC.replace("_start --> _stop", 'child["child.md"]\n_start --> child\nchild --> _stop')
         parent = self.write(graph)
         child = self.nested(parent.parent / "steps/child.md", graph)
         grandchild = self.nested(child.with_suffix("") / "child.md")
@@ -307,7 +293,7 @@ class NestedWorkflowTests(Fixture):
             wf.load(parent)
 
     def test_nested_recursive_reference_and_symlink_escape(self) -> None:
-        graph = BASIC.replace("_start --> _stop", 'child["Child"]\nclick child href "steps/child.md"\n_start --> child\nchild --> _stop')
+        graph = BASIC.replace("_start --> _stop", 'child["child.md"]\n_start --> child\nchild --> _stop')
         parent = self.write(graph)
         child = self.nested(parent.parent / "steps/child.md", graph)
         link = child.with_suffix("") / "child.md"

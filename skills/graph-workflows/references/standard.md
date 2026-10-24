@@ -11,35 +11,35 @@ Installable workflow skills also keep the standard name and description fields. 
 
 ## Nodes and Markdown
 
-Give Markdown targets a readable name and a relative link:
+A node names a relative Markdown path or a plugin:skill identifier:
 
 ```mermaid
 flowchart TD
-plan["Plan [subagent:fresh]"]
-click plan href "steps/plan.md"
+partition["partition.md"]
+review["editor:review [subagent:fresh]"]
 ```
 
-Resolve each href relative to the graph file. The link is the instruction location; no directory name is inferred. A linked file can contain instructions or another marked workflow. For example:
+Skill entries named SKILL.md and supporting example entries named WORKFLOW.md read instructions from steps/. Other workflow files read instructions from a sibling directory matching their filename stem:
 
 ```text
 steps/implement.md             # nested workflow graph
-steps/implement/_start.md      # linked from implement.md as implement/_start.md
-steps/implement/partition.md   # linked as implement/partition.md
-steps/implement/_stop.md       # linked as implement/_stop.md
+steps/implement/_start.md      # its start instructions
+steps/implement/partition.md   # partition["partition.md"] resolves here
+steps/implement/_stop.md       # its stop instructions
 ```
 
-Use a click href declaration for every Markdown-backed node, including control nodes. Skill references use their plugin:skill identifier as the label, without an href. A referenced skill can be prose or a graph workflow.
+Resolve Markdown paths within the applicable instruction directory. A referenced Markdown file can contain instructions or another marked workflow. A skill reference can name a prose skill or a graph workflow.
 
-| Node | Declaration | Example href |
+| Node | Declaration | Instruction path within its directory |
 | --- | --- | --- |
-| Start | `_start@{ shape: sm-circ, label: "Start" }` | `steps/_start.md` |
-| Stop | `_stop@{ shape: framed-circle, label: "Stop" }` | `steps/_stop.md` |
-| Markdown instructions | `draft["Draft"]` | `steps/draft.md` |
-| Skill reference | `review["editor:review"]` | None |
-| Fork | `split@{ shape: fork, label: "fork" }` | `steps/split.md` |
-| Join | `gather@{ shape: fork, label: "join" }` | `steps/gather.md` |
+| Start | `_start@{ shape: sm-circ, label: "Start" }` | `_start.md` |
+| Stop | `_stop@{ shape: framed-circle, label: "Stop" }` | `_stop.md` |
+| Markdown instructions | `draft["draft.md"]` | `draft.md` |
+| Skill reference | `review["editor:review"]` | The referenced skill |
+| Fork | `split@{ shape: fork, label: "fork" }` | `split.md` |
+| Join | `gather@{ shape: fork, label: "join" }` | `gather.md` |
 
-Declare each node and link once. Identifiers contain letters, digits, and underscores and start with a letter or underscore. Only relative Markdown hrefs are supported; callbacks and executable links are not. [Mermaid link interaction](https://mermaid.js.org/syntax/flowchart.html#interaction) depends on the viewer's settings; the CLI reads the declarations without executing them.
+Declare each node once. Identifiers contain letters, digits, and underscores and start with a letter or underscore.
 
 Each node instruction file must explain its purpose, required inputs, actions, and returned outputs without another node's prose or hidden history. Pass previous results as explicit artifacts. Headings are optional except where this standard locates a contract or pairing.
 
@@ -51,23 +51,23 @@ Use `a --> b` for unconditional flow and `a -->|condition| b` for a decision. Ne
 
 A decision takes exactly one true condition after assessing every outgoing condition. Unknown evidence, multiple true conditions, or no true condition blocks execution. Edge order gives no priority. Conditions require agent judgment; validation cannot prove their truth or completeness.
 
-Use one declaration, link, or edge per line. The CLI accepts this subset, blank lines, and Mermaid comments. It does not execute Mermaid, HTML, directives, or handlers. Every node must be reachable from start and have a route to stop. Start has no incoming edges; stop has no outgoing edges. Cycles and recursive references have no imposed execution cap.
+Use one declaration or edge per line. The CLI accepts this subset, blank lines, and Mermaid comments. It does not execute Mermaid, HTML, directives, or handlers. Every node must be reachable from start and have a route to stop. Start has no incoming edges; stop has no outgoing edges. Cycles and recursive references have no imposed execution cap.
 
 ## Threads and nested workflows
 
 Append `[subagent:fresh]` or `[subagent:inherit]` inside a node's quoted label:
 
 ```mermaid
-a["Implement [subagent:fresh]"]
-click a href "steps/implement.md"
+flowchart TD
+a["implement.md [subagent:fresh]"]
 b["editor:review [subagent:inherit]"]
 ```
 
-The annotation is not part of the name or skill identifier. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context. Comments do not set execution preferences.
+The annotation is not part of the Markdown path or skill identifier. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context. Comments do not set execution preferences.
 
 These are preferences. Use the closest supported behavior when the harness lacks subagents, context control, or parallelism. Still execute the work, without routine capability disclaimers or false capability claims.
 
-When next returns a Markdown path, read it; when it returns a skill identifier, resolve the skill. If the target has the workflow marker, read its graph, Notes, and stop contract, then call `start CHILD_FILE` to obtain its linked start instructions. Supply its inputs explicitly, run through stop, then return its declared results to the parent before advancing from the referencing node. Follow other Markdown instructions or a prose skill's own instructions directly. Resolve missing or ambiguous inputs before acting. Missing references block execution; the CLI can only check locally available references.
+When next returns a Markdown path, read it; when it returns a skill identifier, resolve the skill. If the target has the workflow marker, read its graph, Notes, and stop contract, then call `start CHILD_FILE` to obtain its start instructions. Supply its inputs explicitly, run through stop, then return its declared results to the parent before advancing from the referencing node. Follow other Markdown instructions or a prose skill's own instructions directly. Resolve missing or ambiguous inputs before acting. Missing references block execution; the CLI can only check locally available references.
 
 ## Fork and join
 
@@ -92,7 +92,7 @@ Branches must stay separate until their matching join. Nested forks and multiple
 Run `python3 /path/to/graph-workflows/scripts/workflow.py` with one of:
 
 - `validate FILE`: check local graph and references, including nested Markdown workflows; success produces no stdout.
-- `start FILE`: begin a workflow by returning its linked start instruction path. Read and execute it before advancing.
+- `start FILE`: begin a workflow by returning its start instruction path. Read and execute it before advancing.
 - `next FILE NODE`: after executing NODE, return the next path or identifier. For example, `next FILE start` advances past start. Supply `--true TARGET` or `--false TARGET` for each conditional target. Resolve uncertainty before calling next.
 - `fork FILE NODE`: return every branch target, one per line. No condition flags apply.
 
@@ -105,4 +105,4 @@ TARGET is the resolved instruction path or skill identifier. These instructions 
 
 Use `--root DIR` to check local plugin or skill collections. Instruction and template paths must remain inside the workflow's containing directory; physical link targets must remain inside the supplied root. Unavailable plugin namespaces remain skill identifiers for the harness to resolve.
 
-Expanded shapes come from [Mermaid 11.3.0 and later](https://mermaid.js.org/syntax/flowchart.html#expanded-node-shapes-in-mermaid-flowcharts-v1130). The linking, pairing, and execution conventions above belong to this skill.
+Expanded shapes come from [Mermaid 11.3.0 and later](https://mermaid.js.org/syntax/flowchart.html#expanded-node-shapes-in-mermaid-flowcharts-v1130). The reference, pairing, and execution conventions above belong to this skill.

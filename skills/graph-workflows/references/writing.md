@@ -5,7 +5,7 @@ Read the standard and any existing workflow before editing. Establish the task, 
 1. Keep the workflow marker. For installable skills, preserve standard skill frontmatter too.
 2. Put the top-down Mermaid graph first, with optional Notes bullets afterward.
 3. Define start inputs and stop outputs as free-form bullets.
-4. Give Markdown-backed nodes readable labels and relative click href links, including start, stop, fork, and join. A linked Markdown file can itself be a workflow. Use plugin:skill labels for skill references.
+4. Give ordinary nodes relative Markdown paths or plugin:skill identifiers. A referenced Markdown file can itself be a workflow. Put node files in the instruction directory defined by the standard.
 5. Write self-contained instructions with explicit inputs and outputs.
 6. Use conditions for decisions and unlabeled edges for unconditional flow.
 7. Use fork and join labels for concurrency, with no conditions out of fork or into join.
