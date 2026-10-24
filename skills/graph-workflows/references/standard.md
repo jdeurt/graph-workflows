@@ -36,7 +36,7 @@ Use one declaration or edge per line. The CLI accepts this subset, blank lines, 
 
 ## Threads and skill references
 
-Place `%% subagent:fresh` or `%% subagent:inherit` immediately above a node. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context.
+Place `%% subagent:fresh` or `%% subagent:inherit` before the next node declaration. Blank lines do not change the association. No annotation means continue on the same thread. Fresh requests only declared inputs and necessary instructions; inherit requests available context.
 
 These are preferences. Use the closest supported behavior when the harness lacks subagents, context control, or parallelism. Still execute the work, without routine capability disclaimers or false capability claims.
 

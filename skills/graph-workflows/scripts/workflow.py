@@ -90,6 +90,8 @@ def marked(source: str) -> bool:
         value = line[len("metadata:"):].strip()
         if value.startswith("{") and "}" in value:
             return any(re.fullmatch(marker, item) for item in flow_fields(value[1:value.rfind("}")]))
+        if value and not value.startswith("#"):
+            return False
         children: list[str] = []
         for child in lines[index + 1:]:
             if child and not child[0].isspace():

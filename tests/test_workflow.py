@@ -108,7 +108,7 @@ class GraphTests(Fixture):
     def test_direct_marker_in_block_and_flow_metadata(self) -> None:
         for metadata in ("metadata:\n  workflow: mermaid-v1", "metadata: {workflow: mermaid-v1}", 'metadata: {author: "a,b", workflow: "mermaid-v1"}'):
             self.assertTrue(wf.marked(f"---\n{metadata}\n---\n"))
-        for metadata in ("metadata:\n  nested:\n    workflow: mermaid-v1", 'metadata: {note: "x, workflow: mermaid-v1"}'):
+        for metadata in ("metadata:\n  nested:\n    workflow: mermaid-v1", "metadata: |\n  workflow: mermaid-v1", 'metadata: {note: "x, workflow: mermaid-v1"}'):
             self.assertFalse(wf.marked(f"---\n{metadata}\n---\n"))
 
     def test_context_and_unconditional_concurrency(self) -> None:

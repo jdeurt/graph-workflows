@@ -4,6 +4,8 @@ One skill for reading, creating, editing, and executing Markdown workflows with 
 
 ## Install
 
+Use Node.js 22.20 or later:
+
 ```sh
 npx skills add jdeurt/graph-workflows
 ```
