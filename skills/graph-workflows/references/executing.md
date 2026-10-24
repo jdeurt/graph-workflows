@@ -4,7 +4,7 @@ For reading-only requests, inspect or explain the requested content without exec
 
 Read the standard, graph, Notes, start inputs, and stop outputs. Resolve the required inputs and skills before acting. Validate local files with the CLI when available; otherwise inspect them directly.
 
-Do the work the workflow prescribes. Do not narrate workflow execution, node changes, navigation commands, branch dispatch, or control flow. Avoid statements such as “I'm executing this workflow” or “I'll run this node next.” Commands used to navigate or validate the workflow need no commentary.
+Do the work the workflow prescribes. Do not narrate workflow execution, node changes, navigation commands, branch dispatch, or control flow. Avoid statements such as “I'm executing this workflow” or “I'll run this node next.” Commands used to navigate or validate the workflow need no commentary unless the user requests a walkthrough.
 
 Communicate task results, necessary questions, and actual blockers when the task calls for them. If the user asks whether or how a graph workflow is being used, answer truthfully. Silence about routine mechanics is not permission to conceal or misrepresent them.
 

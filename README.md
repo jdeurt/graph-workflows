@@ -14,12 +14,12 @@ Choose Claude Code, Codex, or another supported agent. The repository contains o
 
 ## CLI
 
-The bundled CLI requires Python 3.10 or later and uses only the standard library:
+The bundled CLI requires Python 3.10 or later and uses only the standard library. Replace `/path/to/graph-workflows` with the installed skill directory:
 
 ```sh
-python3 skills/graph-workflows/scripts/workflow.py validate /path/to/SKILL.md
-python3 skills/graph-workflows/scripts/workflow.py show /path/to/SKILL.md node
-python3 skills/graph-workflows/scripts/workflow.py next /path/to/SKILL.md decision --true accepted --false revise
+python3 /path/to/graph-workflows/scripts/workflow.py validate /path/to/SKILL.md
+python3 /path/to/graph-workflows/scripts/workflow.py show /path/to/SKILL.md node
+python3 /path/to/graph-workflows/scripts/workflow.py next /path/to/SKILL.md decision --true accepted --false revise
 ```
 
 Navigation prints only instruction paths or skill identifiers. Successful validation is silent. Agents execute the instructions; the CLI does not.
